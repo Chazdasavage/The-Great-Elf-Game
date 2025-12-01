@@ -1,0 +1,469 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Threading;
+using System.Runtime.InteropServices;
+
+namespace The_Great_Elf_Game
+{
+    internal class Program
+    {
+        public class Player
+        {
+
+            //Assortment of key variables
+            public int totalElves = 12; //The amount of elf workers the player currently has
+            public int cash = 0;
+            public int day = 1;
+            public int woodElves = 0; //Amount of elves currently assigned to the woods
+            public int forestElves = 0; //Amount of elves currently assigned to the forest
+            public int mountainElves = 0; //Amount of elves currently assigned to the mountain
+            public bool elfStrike = false; //Whether the elves are on strike or not
+            public int worklessDays = 0; //How many days your elves will not work for
+            public bool taxBreak = false; //Whether you won't have to pay taxes
+            public int taxCountdown = -1; //Days till you have to pay taxes at an increased rate (negative means the countdown is inactive)
+            public int lotteryPrize = 200; //Currennt lottery prize (base = 200)
+            public bool openMountain = false; //Whether the mountain has been made avaliable
+            public int elfCost = 75; //Cost to hire an elf (base = 75)
+            public Player()
+            {
+
+            }
+        }
+        static void Main(string[] args)
+        {
+            //Initalising variables
+            Player player = new Player();
+            Random random = new Random();
+            bool gameEnd = false;
+
+            //Text-Based Introduction to the Gameplay
+            Console.WriteLine("Welcome to the Great Elf Game");
+            Thread.Sleep(30); //Delays the next instruction by the number of miliseconds, allows for the user to read a given message
+            Console.WriteLine("The aim of this game is to use your elven workers to profit from your Christmas tree buisness");
+            Thread.Sleep(90);
+            Console.WriteLine("Enter any key to continue: ");
+            Thread.Sleep(30);
+            Console.ReadKey(true);
+            Console.Clear();
+            Console.WriteLine("You can choose to send your elves to the woods or forest");
+            Thread.Sleep(60);
+            Console.WriteLine("Trees from the woods are worth 10 cash, and 20 from the forest");
+            Thread.Sleep(70);
+            Console.WriteLine("However, if there is a blizzard (30% chance) then your elves will return from the forest with no trees");
+            Thread.Sleep(100);
+            Console.WriteLine("Enter any key to continue: ");
+            Thread.Sleep(30);
+            Console.ReadKey(true);
+            Console.Clear();
+            while (gameEnd == false) //Loops until the user exits
+            {
+                if (LuckCalculator(random, 0.1F) == true) //10% chance to be able to hire elves
+                {
+                    ElvesForHire(player);
+                }
+
+                SendElves(player); //Takes user input for how many elves they send to the locations
+                if (player.day % 7 == 0) //every 7 days the elves will demand a day off
+                {
+                    StrikingElves(player, random);
+                }
+                if (LuckCalculator(random, 0.2F) == true) //20% chance for the lottery to occur
+                {
+                    Lottery(player, random);
+                }
+                TreeCashCalculation(player, random); //Calculates income based on where elves were sent
+
+                if (player.day % 10 == 0) //Every 10 days the tax man demands tax payment
+                {
+                    TaxMan(player, random);
+                }
+                if (player.taxBreak == false && player.taxCountdown == 0) //Every 12th day you are forced to pay taxes if there is no tax break
+                {
+                    //Forced to pay 20% of current cash
+                    Console.WriteLine($"You had to pay {Convert.ToInt32(player.cash * 0.2)} cash in taxes");
+                    player.cash = Convert.ToInt32(player.cash * 0.8);
+                }
+                if (player.openMountain == false && LuckCalculator(random, 0.1F) == true) //10% chance to open the mountain for use
+                {
+                    MountainOpens(player);
+                }
+
+                if (player.worklessDays > 0)
+                { //Elves are striking for 1 day less
+                    player.worklessDays -= 1;
+                }
+                player.taxCountdown--; //Tax man comes with increased rates 1 day sooner
+
+                //Exit the while loop on pressing the escape button
+                Console.WriteLine("Press escape to end the game or any other key to continue");
+                var key = Console.ReadKey(true);
+                if (key.Key == ConsoleKey.Escape)
+                {
+                    gameEnd = true;
+                }
+                player.day++;
+                Console.Clear();
+            }
+        }
+
+        //Subroutine used to calculate if a luck-based event given a 'luck' as a decimal
+        public static bool LuckCalculator(Random random, float luck)
+        {
+            int randomNum = random.Next(1, 101); //Generate a random number 1-100
+            if (randomNum <= luck * 100) //If the random number is greater than the percentage of the luck value
+            {
+                return true; //Successful luck roll (e.g. the event will occur)
+            }
+            return false; //Unsuccessful luck roll (e.g. the event will not occur)
+        }
+        //Subroutine that simply shows the day, cash and amount of elves total
+        public static void StatsDisplay(Player player)
+        {
+            Console.WriteLine($"Day: {player.day}");
+            Console.WriteLine($"Amount of Elves: {player.totalElves}");
+            Console.WriteLine($"Cash: {player.cash}");
+        }
+        //Subroutine that allows the user to choose where they send elves
+        public static void SendElves(Player player)
+        {
+            if (player.worklessDays != 0) //If elves are on strike just exit this subroutine
+            {
+                Console.WriteLine("Your elves are not working today");
+                Console.WriteLine("Enter any key to continue: ");
+                Thread.Sleep(30);
+                Console.ReadKey(true);
+                Console.Clear();
+                return;
+            }
+            bool validElfSend = false; //Flag to keep the loop going
+            while (validElfSend == false) //Whilst the player input is invalid
+            {
+                StatsDisplay(player);
+               
+                //Sending elves to the woods
+                Console.WriteLine("How many elves would you like to send to the Nearby Woods?: ");
+                try
+                {
+                    player.woodElves = Convert.ToInt16(Console.ReadLine());
+                }
+                catch
+                {
+                    Console.WriteLine("Please input numbers only");
+                }
+               
+                //Sending elves to the forest
+                Console.WriteLine("How many elves would you like to send to the Faraway Forest?: ");
+                try
+                {
+                    player.forestElves = Convert.ToInt16(Console.ReadLine());
+                }
+                catch
+                {
+                    Console.WriteLine("Please input numbers only");
+                }
+                
+                //Sending elves to the mountain (if it has been opened)
+                if (player.openMountain == true)
+                {
+                    Console.WriteLine("How many elves would you like to send to the Massive Mountains?: ");
+                    try
+                    {
+                        player.mountainElves = Convert.ToInt16(Console.ReadLine());
+                    }
+                    catch
+                    {
+                        Console.WriteLine("Please input numbers only");
+                    }
+                }
+                
+                //Check that the player has used all their elves
+                if ((player.woodElves + player.forestElves + player.mountainElves) != player.totalElves)
+                {
+                    Console.WriteLine("You must send all of your elves exactly");
+                }
+                else
+                {
+                    validElfSend = true; //Breaks the flag to end the loop
+                }
+                Console.Clear();
+            }
+            Console.WriteLine("Enter any key to continue: ");
+            Thread.Sleep(30);
+            Console.ReadKey(true);
+            Console.Clear();
+        }
+        //Subroutine to work out the player's income based on where they sent their elves
+        public static void TreeCashCalculation(Player player, Random random)
+        {
+            StatsDisplay(player);
+
+            if (LuckCalculator(random, 0.3F) == false) //A 30% chance for a blizzard
+            {
+                //No income from forest elves with a blizzard
+                Console.WriteLine("There was a blizzard, you gain nothing from the forest");
+                if (player.openMountain == true)
+                {
+                    //Permanently lose elves if a blizzard occurs and they're on the mountain
+                    Console.WriteLine($"You also lost {player.mountainElves} elves who were in the mountains");
+                    player.totalElves -= player.mountainElves;
+                    player.mountainElves = 0;
+                }
+                Thread.Sleep(45);
+                Console.ReadKey(true);
+                player.forestElves = 0;
+            }
+            else
+            {
+                //No blizzard so the default course of events
+                Console.WriteLine("It was sunny, your elves return with trees from the forest");
+                Console.WriteLine("Enter any key to continue: ");
+                Thread.Sleep(30);
+                Console.ReadKey(true);
+            }
+
+            //Update the amount of money the player has
+            player.cash += player.woodElves * 10 + player.forestElves * 20;
+            Console.WriteLine($"You gained {player.woodElves * 10} from the woods");
+            Console.WriteLine($"You gained {player.forestElves * 20} from the forest");
+            if (player.openMountain == true)
+            {
+                Console.WriteLine($"You gained {player.mountainElves * 50} from the mountains");
+            }
+            player.woodElves = 0;
+            player.forestElves = 0;
+            player.mountainElves = 0;
+            Console.WriteLine("Enter any key to continue: ");
+            Thread.Sleep(30);
+            Console.ReadKey(true);
+        }
+       //Subroutine that organises strikes and elves demanding a day off, striking elves mean you can't send them to get trees
+        public static void StrikingElves(Player player, Random random)
+        {
+            StatsDisplay(player);
+            //Text introduction
+            Console.WriteLine("All of your elves are demanding a day off");
+            Console.WriteLine("If you allow them a day off then they will not work tomorrow");
+            Console.WriteLine("If you don't let them have a day off then there is a 50% chance they won't work for the next 2 days");
+            Thread.Sleep(30);
+            
+            Console.WriteLine("Press the y key to allow them to take a day off: ");
+            var tempInput = Console.ReadKey(true);
+            if (tempInput.Key == ConsoleKey.Y)
+            {
+                //The elves won't work the next day but nothing else occurs
+                player.worklessDays += 2;
+                Console.WriteLine("You gave your elves tomorrow off");
+            }
+            else
+            {
+                if (LuckCalculator(random, 0.5F) == true) //50% chance the elves don't work for 2 days
+                {
+                    player.worklessDays += 3;
+                    Console.WriteLine("Your elves have gone on strike and won't work for the next 2 days");
+                }
+            }
+            Console.WriteLine("Enter any key to continue: ");
+            Thread.Sleep(30);
+            Console.ReadKey(true);
+            Console.Clear();
+        }
+        //Subroutine that occurs regularly and works out whether you lose some income to taxes
+        public static void TaxMan(Player player, Random random)
+        {
+            player.taxBreak = false; //Resets whether the player has been exempt from taxes
+            Console.Clear();
+            StatsDisplay(player);
+
+            //Text introduction
+            Console.WriteLine("The tax man demands you pay the taxes for your buisness");
+            Console.WriteLine("You will have to pay 10% of your current cash if you choose to pay these taxes");
+            Console.WriteLine("However, you can refuse to pay them");
+            Console.WriteLine("If you refuse then there is a 30% chance you never pay");
+            Console.WriteLine("But there is a 50% chance you have to pay 20% in 3 days");
+            Thread.Sleep(30);
+
+            Console.WriteLine("Press the y key to pay your taxes: ");
+            var tempInput = Console.ReadKey(true);
+            if (tempInput.Key == ConsoleKey.Y)
+            {
+                //Accept the taxes at the lower rate of 10%
+                Console.WriteLine($"You paid {Convert.ToInt32(player.cash * 0.1)} cash in taxes");
+                player.cash = Convert.ToInt32(player.cash * 0.9);
+                player.taxBreak = true; //You won't be forced to pay extra the next time
+            }
+            else
+            {
+                if (LuckCalculator(random, 0.3F) == true)
+                {
+                    //Exempt from taxes the next time he should come round
+                    Console.WriteLine("The taxman has granted you a tax break");
+                    player.taxBreak = true;
+                }
+                else
+                {
+                    player.taxCountdown = 2; //The player will be forced to pay taxes at a higher rate in 2 days
+                }
+            }
+            Console.WriteLine("Enter any key to continue: ");
+            Thread.Sleep(30);
+            Console.ReadKey(true);
+            Console.Clear();
+        }
+        //Subroutine that manages the lottery, drawing random numbers and earning a money bonus
+        public static void Lottery(Player player, Random random)
+        {
+            bool validNumbers = false;
+            int playerNumber1 = 0, playerNumber2 = 0;
+            Console.WriteLine("Today is the lottery!");
+            Console.WriteLine($"Pick 2 numbers (1-6) and win {player.lotteryPrize} for 2 correct numbers and {player.lotteryPrize / 4} for 1");
+            Console.WriteLine("Enter any key to continue: ");
+            Thread.Sleep(30);
+            Console.ReadKey(true);
+            Console.Clear();
+
+            StatsDisplay(player);
+            while (validNumbers == false)
+            {
+                //Player has to enter data twice until it is 2 numbers between 1 and 6 (like dice)
+                Console.WriteLine("Enter your first number: ");
+                try
+                {
+                    playerNumber1 = Convert.ToInt16(Console.ReadLine());
+                }
+                catch
+                {
+                    Console.WriteLine("Please input numbers only");
+                }
+                Console.WriteLine("Enter your second number: ");
+                try
+                {
+                    playerNumber2 = Convert.ToInt16(Console.ReadLine());
+                }
+                catch
+                {
+                    Console.WriteLine("Please input numbers only");
+                }
+                if (playerNumber1 > 6 || playerNumber1 < 1 || playerNumber2 > 6 || playerNumber2 < 1)
+                {
+                    Console.WriteLine("Please enter numbers between 1 and 6 only");
+                }
+                else
+                {
+                    validNumbers = true;
+                }
+            }
+
+            //Generates 2 random numbers between 1 and 6
+            int randomNumber1 = random.Next(1, 7);
+            int randomNumber2 = random.Next(1, 7);
+            Console.WriteLine("The numbers for today's lottery are:");
+            Thread.Sleep(40);
+            Console.WriteLine($"First Number: {randomNumber1}");
+            Thread.Sleep(40);
+            Console.WriteLine($"Second Number: {randomNumber2}");
+            Thread.Sleep(40);
+
+            //Determine if they got 1 right or both
+            if (playerNumber1 == randomNumber1 && playerNumber2 == randomNumber2)
+            {
+                Console.WriteLine($"Congratulations, you won the grand prize of {player.lotteryPrize} cash");
+                player.cash += player.lotteryPrize;
+            }
+            else if (playerNumber1 == randomNumber1 || playerNumber2 == randomNumber2)
+            {
+                Console.WriteLine($"You still won the small prize of {player.lotteryPrize / 4} cash");
+                player.cash += player.lotteryPrize / 4;
+            }
+            else
+            {
+                Console.WriteLine("Better luck next time");
+            }
+            player.lotteryPrize += 200; //prize increases each time subroutine is called
+            Console.WriteLine("Enter any key to continue: ");
+            Thread.Sleep(30);
+            Console.ReadKey(true);
+            Console.Clear();
+        }
+        //Subroutine that occurs once to unlock a new place to send elves
+        public static void MountainOpens(Player player)
+        {
+            Console.Clear();
+            //Text summary of what's happened
+            Console.WriteLine("The council has finally completed work on the mountain pass");
+            Console.WriteLine("You can now send elves to the mountains where trees are worth 50 cash");
+            Console.WriteLine("However, if there is a blizzard then elves in the mountains are lost permanently");
+            player.openMountain = true;
+
+            Console.WriteLine("Enter any key to continue: ");
+            Thread.Sleep(30);
+            Console.ReadKey(true);
+        }
+        //Subroutine that allows the player to hire more elves
+        public static void ElvesForHire(Player player)
+        {
+            bool validElfHiring = false; //Flag to keep the while loop
+            int hiredElves = -1;
+            StatsDisplay(player);
+
+            //Text summary
+            Console.WriteLine("Some new elves are looking for a job");
+            Console.WriteLine($"You can hire them for {player.elfCost} each");
+            Thread.Sleep(30);
+            Console.WriteLine("Remember, they increase in price everytime new elves are looking for work");
+            Console.WriteLine("Enter any key to continue: ");
+            Thread.Sleep(30);
+            Console.ReadKey(true);
+            Console.Clear();
+
+            while (validElfHiring == false) //While loop until the player enters a valid input
+            {
+                StatsDisplay(player);
+                Console.WriteLine("How many elves would you like to hire?: ");
+                try
+                {
+                    hiredElves = Convert.ToInt32(Console.ReadLine());
+                    if (hiredElves < 0) //Blocks negatives
+                    {
+                        Console.WriteLine("Enter positive numbers only"); 
+                    }
+                }
+                catch //Blocks letters and special characters
+                {
+                    Console.Clear();
+                    Console.WriteLine("Please enter numbers only");
+                }
+                if ((hiredElves * player.elfCost) > player.cash)
+                {  //The player is not allowed to go into debt when hiring
+                    Console.Clear();
+                    Console.WriteLine("You cannot go into debt to hire elves");
+                }
+                if (hiredElves!= -1 && (hiredElves * player.elfCost) < player.cash)
+                {
+                    validElfHiring = true; //Breaks the while loop
+                }
+            }
+            if (hiredElves != 0)
+            { //Display for if the player is hiring elves
+                Console.WriteLine($"You gained {hiredElves} elves for the price of {hiredElves * player.elfCost} cash");
+                player.totalElves += hiredElves;
+                player.cash -= hiredElves * player.elfCost;
+                validElfHiring = true;
+                Console.WriteLine("Enter any key to continue: ");
+                Thread.Sleep(30);
+                Console.ReadKey(true);
+            }
+            if (hiredElves == 0)
+            {
+                validElfHiring = true;
+                Console.WriteLine("Enter any key to continue: ");
+                Thread.Sleep(30);
+                Console.ReadKey(true);
+            }
+            Console.Clear();
+            player.elfCost += 25; //Elf hire cost increases every time
+        }
+    }
+}
